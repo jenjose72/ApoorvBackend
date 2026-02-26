@@ -1,9 +1,8 @@
-import express from 'express'
-import { Router } from 'express'
+import { Router } from "express"
+import { orderController } from './orders.controller.js'
 const router = Router()
 
-router.get('/', (req, res) => {
-  res.send('Orders route')
-})
+router.post('/', orderController.createOrder)
+router.get('/:id', orderController.getOrderById)
 
 export default router
