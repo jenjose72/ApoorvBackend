@@ -3,6 +3,7 @@ import dotenv from 'dotenv'
 import cors from 'cors'
 import { pool, query } from './src/config/db.js'
 import admin from './src/modules/admins/admin.route.js'
+import superadmin from './src/modules/superadmin/superadmin.route.js'
 import orders from './src/modules/orders/order.route.js'
 import payments from './src/modules/payments/payment.route.js'
 import products from './src/modules/products/product.route.js'
@@ -17,9 +18,11 @@ app.use(express.urlencoded({ extended: true }))
 
 app.get('/', (req, res) => {
   res.send('Hello, World!')
+
 })
 
 app.use('/api/admin', admin)
+app.use('/api/superadmin', superadmin)
 app.use('/api/orders', orders)
 app.use('/api/payments', payments)
 app.use('/api/products', products)
