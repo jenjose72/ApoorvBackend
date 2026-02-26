@@ -114,7 +114,18 @@ export const adminService = {
 				throw error;
 			}
 
-			if (order.status !== 'payment_submitted') {
+			const adminRes = await client.query(
+				`SELECT role FROM admins WHERE id = $1`,
+				[adminId]
+			);
+			const admin = adminRes.rows[0];
+			if (!admin) {
+				const error = new Error('Admin not found');
+				error.statusCode = 404;
+				throw error;
+			}
+
+			if (order.status !== 'payment_submitted' && admin.role !== 'super_admin') {
 				const error = new Error('Order status is not payment_submitted');
 				error.statusCode = 400;
 				throw error;
@@ -160,7 +171,18 @@ export const adminService = {
 				throw error;
 			}
 
-			if (order.status !== 'payment_submitted') {
+			const adminRes = await client.query(
+				`SELECT role FROM admins WHERE id = $1`,
+				[adminId]
+			);
+			const admin = adminRes.rows[0];
+			if (!admin) {
+				const error = new Error('Admin not found');
+				error.statusCode = 404;
+				throw error;
+			}
+
+			if (order.status !== 'payment_submitted' && admin.role !== 'super_admin') {
 				const error = new Error('Order status is not payment_submitted');
 				error.statusCode = 400;
 				throw error;
