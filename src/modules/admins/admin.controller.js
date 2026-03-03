@@ -7,6 +7,57 @@ const sanitizeEmail = (value) => sanitizeString(value).toLowerCase();
 const sanitizeRole = (value) => sanitizeString(value).toLowerCase();
 const ALLOWED_ROLES = new Set(['normal_admin', 'super_admin']);
 
+const csvEscape = (value) => {
+    if (value === null || value === undefined) return '';
+
+    const stringValue =
+        typeof value === 'string'
+            ? value
+            : typeof value === 'object'
+                ? JSON.stringify(value)
+                : String(value);
+
+    const escaped = stringValue.replace(/"/g, '""');
+    return `"${escaped}"`;
+};
+
+const buildOrdersCsv = (orders) => {
+    const headers = [
+        'order_id',
+        'order_number',
+        'full_name',
+        'roll_number',
+        'phone',
+        'total_amount',
+        'status',
+        'upi_transaction_id',
+        'upi_account_id',
+        'upi_id',
+        'order_items'
+    ];
+
+    const rows = orders.map((order) => [
+        order.order_id,
+        order.order_number,
+        order.full_name,
+        order.roll_number,
+        order.phone,
+        order.total_amount,
+        order.status,
+        order.upi_transaction_id,
+        order.upi_account_id,
+        order.upi_id,
+        order.order_items
+    ]);
+
+    const csvRows = [
+        headers.map(csvEscape).join(','),
+        ...rows.map((row) => row.map(csvEscape).join(','))
+    ];
+
+    return csvRows.join('\n');
+};
+
 export const registerAdmin = async (req, res, next) => {
     try {
         const { name, email, password, role } = req.body;
@@ -106,6 +157,23 @@ export const listOrdersForAdmin = async (req, res, next) => {
             status: 'success',
             data: orders
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const downloadOrdersCsv = async (req, res, next) => {
+    try {
+        const orders = await adminService.listOrdersForAdmin();
+        const csv = buildOrdersCsv(orders);
+
+        const now = new Date();
+        const dateStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const filename = `admin-orders-${dateStamp}.csv`;
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.status(200).send(csv);
     } catch (error) {
         next(error);
     }
