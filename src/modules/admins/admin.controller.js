@@ -256,3 +256,74 @@ export const rejectOrderStatus = async (req, res, next) => {
         next(error);
     }
 };
+
+export const changePassword = async (req, res, next) => {
+    try {
+        const adminId = req.admin?.id;
+        if (!adminId) {
+            const error = new Error('Unauthorized');
+            error.statusCode = 401;
+            throw error;
+        }
+
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        // Validate input
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            const error = new Error('All password fields are required');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Check new password length
+        if (newPassword.length < 8) {
+            const error = new Error('New password must be at least 8 characters');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Check passwords match
+        if (newPassword !== confirmPassword) {
+            const error = new Error('New password and confirmation do not match');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Check new password is different from current
+        if (currentPassword === newPassword) {
+            const error = new Error('New password must be different from current password');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Get admin with password hash
+        const admin = await adminService.getAdminByIdWithPassword(adminId);
+        if (!admin) {
+            const error = new Error('Admin not found');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        // Verify current password
+        const isValidPassword = await bcrypt.compare(currentPassword, admin.password_hash);
+        if (!isValidPassword) {
+            const error = new Error('Current password is incorrect');
+            error.statusCode = 401;
+            throw error;
+        }
+
+        // Hash new password
+        const newPasswordHash = await bcrypt.hash(newPassword, 10);
+
+        // Update password
+        const result = await adminService.changePassword(adminId, newPasswordHash);
+
+        res.json({
+            status: 'success',
+            message: 'Password changed successfully',
+            data: result
+        });
+    } catch (error) {
+        next(error);
+    }
+};

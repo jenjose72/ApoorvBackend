@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { registerAdmin, loginAdmin, listOrdersForAdmin, downloadOrdersCsv, verifyOrderStatus, rejectOrderStatus } from './admin.controller.js'
+import { registerAdmin, loginAdmin, listOrdersForAdmin, downloadOrdersCsv, verifyOrderStatus, rejectOrderStatus, changePassword } from './admin.controller.js'
 import { verifyToken } from '../../middleware/auth.middleware.js'
 
 const router = Router()
@@ -7,6 +7,9 @@ const router = Router()
 // Public routes
 router.post('/register', registerAdmin)
 router.post('/login', loginAdmin)
+
+// Protected admin routes
+router.put('/change-password', verifyToken, changePassword)
 
 // Admin orders
 router.get('/orders', verifyToken, listOrdersForAdmin)

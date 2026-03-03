@@ -101,6 +101,37 @@ export const adminService = {
 	},
 
 	/**
+	 * Fetch admin by id with password hash (for password verification).
+	 */
+	async getAdminByIdWithPassword(adminId) {
+		const sql = `
+			SELECT id, name, email, password_hash, role, is_active, last_login_at, created_at
+			FROM admins
+			WHERE id = $1
+			LIMIT 1
+		`;
+		const result = await query(sql, [adminId]);
+		return result.rows[0] || null;
+	},
+
+	/**
+	 * Change admin password
+	 * @param {number} adminId - Admin ID
+	 * @param {string} newPasswordHash - New hashed password
+	 * @returns {object|null} Updated admin info
+	 */
+	async changePassword(adminId, newPasswordHash) {
+		const sql = `
+			UPDATE admins
+			SET password_hash = $1
+			WHERE id = $2
+			RETURNING id, name, email, role
+		`;
+		const result = await query(sql, [newPasswordHash, adminId]);
+		return result.rows[0] || null;
+	},
+
+	/**
 	 * List all orders with items and payment info for admin.
 	 * @param {string} statusFilter - Optional status filter: 'verified', 'rejected', or undefined for all
 	 */
