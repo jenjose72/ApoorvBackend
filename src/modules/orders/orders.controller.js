@@ -28,7 +28,10 @@ const unifiedOrderSchema = Joi.object({
     // Payment Details
     upi_account_id: Joi.number().integer().positive().required(),
     upi_transaction_id: Joi.string().trim().min(1).required(),
-    amount_paid: Joi.number().precision(2).min(0).required()
+    amount_paid: Joi.number().precision(2).min(0).required(),
+
+    // CAPTCHA Token
+    captchaToken: Joi.string().required()
 });
 
 export const orderController = {
