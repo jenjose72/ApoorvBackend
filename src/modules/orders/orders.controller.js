@@ -12,9 +12,18 @@ const unifiedOrderSchema = Joi.object({
     items: Joi.array().items(
         Joi.object({
             product_variant_id: Joi.number().integer().positive().required(),
-            quantity: Joi.number().integer().positive().required()
+            quantity: Joi.number().integer().positive().max(5).required()
         })
-    ).min(1).required(),
+    ).min(1).required().custom((value, helpers) => {
+        // Calculate total quantity across all items
+        const totalQuantity = value.reduce((sum, item) => sum + item.quantity, 0);
+        if (totalQuantity > 5) {
+            return helpers.error('any.custom', {
+                message: 'Total quantity across all items cannot exceed 5'
+            });
+        }
+        return value;
+    }, 'Total quantity validation'),
 
     // Payment Details
     upi_account_id: Joi.number().integer().positive().required(),

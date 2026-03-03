@@ -12,7 +12,13 @@ export const orderService = {
         try {
             await client.query('BEGIN');
 
-            // 1. Calculate total server-side and check stock
+            // 1. Validate maximum purchase limit (5 items total)
+            const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+            if (totalQuantity > 5) {
+                throw new Error('Maximum purchase limit exceeded. You can only order up to 5 items per order.');
+            }
+
+            // 2. Calculate total server-side and check stock
             let totalAmount = 0;
             const orderItems = [];
 
@@ -44,12 +50,12 @@ export const orderService = {
                 });
             }
 
-            // 2. Validate amount paid matches server-calculated total
+            // 3. Validate amount paid matches server-calculated total
             if (parseFloat(amount_paid) !== totalAmount) {
                 throw new Error(`Amount paid (${amount_paid}) does not match required total (${totalAmount})`);
             }
 
-            // 3. Insert into orders with custom order_number
+            // 4. Insert into orders with custom order_number
             const orderNumRes = await client.query("SELECT nextval('order_number_seq') as num");
             const orderNumber = `APRV26${orderNumRes.rows[0].num}`;
 
@@ -64,7 +70,7 @@ export const orderService = {
             const orderId = orderRes.rows[0].id;
             const finalOrderNumber = orderRes.rows[0].order_number;
 
-            // 4. Insert into order_items
+            // 5. Insert into order_items
             for (const item of orderItems) {
                 await client.query(
                     `INSERT INTO order_items (order_id, product_variant_id, price_at_purchase, quantity)
@@ -79,7 +85,7 @@ export const orderService = {
                 );
             }
 
-            // 5. Insert into payments
+            // 6. Insert into payments
             try {
                 await client.query(
                     `INSERT INTO payments (order_id, upi_account_id, upi_transaction_id, amount_paid, payment_status)
