@@ -12,7 +12,22 @@ dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 3000
 
-app.use(cors())
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://apoorv.iiitkottayam.ac.in'
+  ,'https://apoorv-admin-frontend-ydmj.vercel.app'
+]
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+
+    return callback(new Error('Not allowed by CORS'))
+  },
+  credentials: true
+}))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
