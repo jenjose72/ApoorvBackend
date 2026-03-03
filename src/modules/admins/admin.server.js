@@ -102,8 +102,9 @@ export const adminService = {
 
 	/**
 	 * List all orders with items and payment info for admin.
+	 * @param {string} statusFilter - Optional status filter: 'verified', 'rejected', or undefined for all
 	 */
-	async listOrdersForAdmin() {
+	async listOrdersForAdmin(statusFilter = null) {
 		const sql = `
 			SELECT
 				o.id AS order_id,
@@ -135,10 +136,15 @@ export const adminService = {
 			LEFT JOIN products prod ON pv.product_id = prod.id
 			LEFT JOIN payments p ON o.id = p.order_id
 			LEFT JOIN upi_accounts u ON p.upi_account_id = u.id
+			${statusFilter ? 'WHERE o.status = $1' : ''}
 			GROUP BY o.id, o.order_number, o.full_name, o.roll_number, o.phone, o.total_amount, o.status, p.upi_transaction_id, p.upi_account_id, u.upi_id
 			ORDER BY o.created_at DESC
 		`;
-		const result = await query(sql);
+		
+		const result = statusFilter 
+			? await query(sql, [statusFilter])
+			: await query(sql);
+		
 		return result.rows;
 	},
 

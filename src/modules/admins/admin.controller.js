@@ -164,12 +164,25 @@ export const listOrdersForAdmin = async (req, res, next) => {
 
 export const downloadOrdersCsv = async (req, res, next) => {
     try {
-        const orders = await adminService.listOrdersForAdmin();
+        // Get status filter from query params: 'all', 'verified', 'rejected'
+        const statusFilter = req.query.status;
+        let filterValue = null;
+        let filenameSuffix = 'all';
+
+        if (statusFilter === 'verified') {
+            filterValue = 'verified';
+            filenameSuffix = 'verified';
+        } else if (statusFilter === 'rejected') {
+            filterValue = 'rejected';
+            filenameSuffix = 'rejected';
+        }
+
+        const orders = await adminService.listOrdersForAdmin(filterValue);
         const csv = buildOrdersCsv(orders);
 
         const now = new Date();
         const dateStamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        const filename = `admin-orders-${dateStamp}.csv`;
+        const filename = `admin-orders-${filenameSuffix}-${dateStamp}.csv`;
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

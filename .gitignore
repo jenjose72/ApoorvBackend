@@ -139,6 +139,10 @@ dist
 !.yarn/sdks
 !.yarn/versions
 
+admin-template.js
+CREATE_ADMINS_README.md
+create-admins.js
+
 # Vite files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
