@@ -192,6 +192,50 @@ export const downloadOrdersCsv = async (req, res, next) => {
     }
 };
 
+export const getDashboardStats = async (req, res, next) => {
+    try {
+        const stats = await adminService.getDashboardStats();
+        res.json({ status: 'success', data: stats });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const verifyCollectionCode = async (req, res, next) => {
+    try {
+        const adminId = req.admin?.id;
+        if (!adminId) {
+            const error = new Error('Unauthorized');
+            error.statusCode = 401;
+            throw error;
+        }
+
+        const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
+        if (!code) {
+            const error = new Error('Collection code is required');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        // Basic format check: 6 alphanumeric chars
+        if (!/^[A-Z0-9]{6}$/.test(code)) {
+            const error = new Error('Invalid collection code format');
+            error.statusCode = 400;
+            throw error;
+        }
+
+        const result = await adminService.verifyCollectionCode(code, adminId, req.ip);
+
+        res.json({
+            status: 'success',
+            message: 'Collection verified successfully',
+            data: result,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const verifyOrderStatus = async (req, res, next) => {
     try {
         const { id } = req.params;

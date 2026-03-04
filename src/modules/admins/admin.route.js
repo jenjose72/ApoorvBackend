@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { registerAdmin, loginAdmin, listOrdersForAdmin, downloadOrdersCsv, verifyOrderStatus, rejectOrderStatus, changePassword } from './admin.controller.js'
+import { registerAdmin, loginAdmin, listOrdersForAdmin, downloadOrdersCsv, verifyOrderStatus, rejectOrderStatus, changePassword, getDashboardStats, verifyCollectionCode } from './admin.controller.js'
 import { verifyToken } from '../../middleware/auth.middleware.js'
 
 const router = Router()
@@ -10,6 +10,12 @@ router.post('/login', loginAdmin)
 
 // Protected admin routes
 router.put('/change-password', verifyToken, changePassword)
+
+// Dashboard stats
+router.get('/dashboard/stats', verifyToken, getDashboardStats)
+
+// Collection verification (merch distribution)
+router.post('/collection/verify', verifyToken, verifyCollectionCode)
 
 // Admin orders
 router.get('/orders', verifyToken, listOrdersForAdmin)

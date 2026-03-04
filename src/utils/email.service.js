@@ -396,13 +396,11 @@ APOORV 2026 Team
                     <ul>
                         <li>Collection Code: <strong>${collectionCode}</strong></li>
                         <li>Order Number: <strong>${orderNumber}</strong></li>
-                        <li>Venue: <strong>APOORV 2026 Festival Grounds</strong></li>
-                        <li>Collection Counter: <strong>Official Merchandise Stall</strong></li>
                     </ul>
                 </div>
                 
                 <p class="closing-text">If you have any questions about your order, feel free to reach out to us. We're here to help!</p>
-                <div class="cta-text">See you at APOORV 2026! 🚀</div>
+                <div class="cta-text">See you at APOORV 2026!</div>
             </div>
             
             <div class="footer">

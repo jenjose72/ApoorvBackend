@@ -180,6 +180,171 @@ export const adminService = {
 	},
 
 	/**
+	 * Verify a collection code during merch distribution.
+	 * One-time use: marks the order as collected and logs the action.
+	 * @param {string} code - The 6-char alphanumeric collection code
+	 * @param {number} adminId - ID of the admin doing the verification
+	 * @param {string} ipAddress - Admin's IP for audit log
+	 */
+	async verifyCollectionCode(code, adminId, ipAddress) {
+		const client = await pool.connect();
+		try {
+			await client.query('BEGIN');
+
+			// 1. Lock the order row first (FOR UPDATE is incompatible with GROUP BY)
+			const lockRes = await client.query(
+				`SELECT id, order_number, full_name, roll_number, phone, email,
+				        total_amount, status, collected_at, collected_by
+				 FROM orders
+				 WHERE collection_code = $1
+				 FOR UPDATE`,
+				[code.toUpperCase()]
+			);
+
+			if (lockRes.rows.length === 0) {
+				const err = new Error('Invalid collection code');
+				err.statusCode = 404;
+				throw err;
+			}
+
+			const order = lockRes.rows[0];
+
+			// 1b. Fetch items separately now that the row is locked
+			const itemsRes = await client.query(
+				`SELECT prod.name AS product_name, pv.size AS variant_size, oi.quantity
+				 FROM order_items oi
+				 JOIN product_variants pv ON oi.product_variant_id = pv.id
+				 JOIN products prod ON pv.product_id = prod.id
+				 WHERE oi.order_id = $1
+				 ORDER BY oi.id`,
+				[order.id]
+			);
+			order.items = itemsRes.rows;
+
+			// 2. Must be a verified order
+			if (order.status !== 'verified') {
+				const err = new Error('This order is not approved for collection');
+				err.statusCode = 400;
+				throw err;
+			}
+
+			// 3. One-time use check
+			if (order.collected_at !== null) {
+				// Fetch admin name who already collected it
+				const prevAdminRes = await client.query(
+					`SELECT name FROM admins WHERE id = $1`,
+					[order.collected_by]
+				);
+				const prevAdmin = prevAdminRes.rows[0]?.name || 'Unknown admin';
+				const when = new Date(order.collected_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+				const err = new Error(`Already collected on ${when} by ${prevAdmin}`);
+				err.statusCode = 409;
+				throw err;
+			}
+
+			// 4. Mark as collected
+			await client.query(
+				`UPDATE orders SET collected_at = NOW(), collected_by = $1 WHERE id = $2`,
+				[adminId, order.id]
+			);
+
+			// 5. Write audit log
+			await client.query(
+				`INSERT INTO audit_logs (admin_id, action_type, entity_type, entity_id, old_status, new_status, ip_address)
+				 VALUES ($1, 'COLLECTION_VERIFIED', 'order', $2, 'verified', 'collected', $3)`,
+				[adminId, order.id, ipAddress]
+			);
+
+			await client.query('COMMIT');
+
+			return {
+				order_id: order.id,
+				order_number: order.order_number,
+				full_name: order.full_name,
+				roll_number: order.roll_number,
+				phone: order.phone,
+				email: order.email,
+				total_amount: order.total_amount,
+				items: order.items,
+				collected_at: new Date().toISOString(),
+			};
+		} catch (error) {
+			await client.query('ROLLBACK');
+			throw error;
+		} finally {
+			client.release();
+		}
+	},
+
+	/**
+	 * Compute dashboard statistics for admin panel
+	 * Returns counts, total revenue (verified), revenue split by UPI id, and orders split by product
+	 */
+	async getDashboardStats() {
+		// 1) counts + total item count
+		const countsSql = `
+			SELECT
+				COUNT(*)::int AS total,
+				COUNT(*) FILTER (WHERE status = 'payment_submitted')::int AS pending,
+				COUNT(*) FILTER (WHERE status = 'verified')::int AS verified,
+				COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected,
+				COALESCE((
+					SELECT SUM(oi.quantity)::int
+					FROM order_items oi
+					JOIN orders o2 ON oi.order_id = o2.id
+					WHERE o2.status = 'verified'
+				), 0) AS total_items
+			FROM orders o
+		`;
+		const countsRes = await query(countsSql);
+		const counts = countsRes.rows[0] || { total: 0, pending: 0, verified: 0, rejected: 0 };
+
+		// 2) total revenue from verified orders
+		const revenueSql = `
+			SELECT COALESCE(SUM(total_amount), 0)::numeric AS total_revenue
+			FROM orders
+			WHERE status = 'verified'
+		`;
+		const revenueRes = await query(revenueSql);
+		const totalRevenue = parseFloat(revenueRes.rows[0]?.total_revenue || 0);
+
+		// 3) revenue split by UPI id (sum of payments.amount_paid for verified orders)
+		const revenueByUpiSql = `
+			SELECT u.upi_id, COALESCE(SUM(p.amount_paid),0)::numeric AS total
+			FROM payments p
+			JOIN orders o ON p.order_id = o.id
+			LEFT JOIN upi_accounts u ON p.upi_account_id = u.id
+			WHERE o.status = 'verified'
+			GROUP BY u.upi_id
+			ORDER BY total DESC
+		`;
+		const revenueByUpiRes = await query(revenueByUpiSql);
+
+		// 4) orders / items / revenue split by merch (product)
+		const ordersByMerchSql = `
+			SELECT prod.name AS product_name,
+				COUNT(DISTINCT o.id)::int AS orders_count,
+				SUM(oi.quantity)::int AS items_count,
+				COALESCE(SUM(oi.quantity * oi.price_at_purchase),0)::numeric AS revenue
+			FROM orders o
+			JOIN order_items oi ON o.id = oi.order_id
+			JOIN product_variants pv ON oi.product_variant_id = pv.id
+			JOIN products prod ON pv.product_id = prod.id
+			WHERE o.status = 'verified'
+			GROUP BY prod.name
+			ORDER BY orders_count DESC
+		`;
+		const ordersByMerchRes = await query(ordersByMerchSql);
+
+		return {
+			counts,
+			totalRevenue,
+			revenueByUpi: revenueByUpiRes.rows,
+			ordersByMerch: ordersByMerchRes.rows,
+		};
+	},
+
+	/**
 	 * Verify order and write audit log.
 	 */
 	async verifyOrderStatus(orderId, adminId, ipAddress) {
