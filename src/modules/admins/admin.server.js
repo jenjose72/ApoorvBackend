@@ -336,11 +336,39 @@ export const adminService = {
 		`;
 		const ordersByMerchRes = await query(ordersByMerchSql);
 
+		// 5) items per product per size, sorted by standard size order
+		const sizeBreakdownSql = `
+			SELECT
+				prod.name AS product_name,
+				pv.size,
+				SUM(oi.quantity)::int AS items_count
+			FROM orders o
+			JOIN order_items oi ON o.id = oi.order_id
+			JOIN product_variants pv ON oi.product_variant_id = pv.id
+			JOIN products prod ON pv.product_id = prod.id
+			WHERE o.status = 'verified'
+			GROUP BY prod.name, pv.size
+			ORDER BY
+				prod.name,
+				CASE pv.size
+					WHEN 'XS'   THEN 1
+					WHEN 'S'    THEN 2
+					WHEN 'M'    THEN 3
+					WHEN 'L'    THEN 4
+					WHEN 'XL'   THEN 5
+					WHEN 'XXL'  THEN 6
+					WHEN 'XXXL' THEN 7
+					ELSE 99
+				END
+		`;
+		const sizeBreakdownRes = await query(sizeBreakdownSql);
+
 		return {
 			counts,
 			totalRevenue,
 			revenueByUpi: revenueByUpiRes.rows,
 			ordersByMerch: ordersByMerchRes.rows,
+			sizeBreakdown: sizeBreakdownRes.rows,
 		};
 	},
 
