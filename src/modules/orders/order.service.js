@@ -1,6 +1,25 @@
-import { pool } from '../../config/db.js';
+import { pool, query } from '../../config/db.js';
 
 export const orderService = {
+    async getLeaderboard() {
+        const sql = `
+            SELECT
+                MAX(o.full_name) AS full_name,
+                MAX(o.roll_number) AS roll_number,
+                SUM(oi.quantity)::int AS total_items
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            JOIN product_variants pv ON oi.product_variant_id = pv.id
+            JOIN products prod ON pv.product_id = prod.id
+            WHERE o.status = 'verified'
+            GROUP BY o.phone
+            ORDER BY total_items DESC, MAX(o.full_name) ASC
+            LIMIT 10
+        `;
+        const result = await query(sql, []);
+        return result.rows;
+    },
+
     async createOrderWithPayment(data) {
         const {
             full_name, roll_number, phone, email, items,

@@ -35,6 +35,15 @@ const unifiedOrderSchema = Joi.object({
 });
 
 export const orderController = {
+    async getLeaderboard(req, res, next) {
+        try {
+            const data = await orderService.getLeaderboard();
+            res.json({ status: 'success', data });
+        } catch (error) {
+            next(error);
+        }
+    },
+
     async createOrder(req, res, next) {
         try {
             const { error, value } = unifiedOrderSchema.validate(req.body);
